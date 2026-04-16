@@ -446,6 +446,7 @@ text-align: center;
     inputmode="text"
   >
   <button class="scan-btn" onclick="triggerScan()" title="Kamera">📷</button>
+  <div id="reader" style="width:100%; margin-top:15px; display:none;"></div>
 </div>
 
 <!-- Hidden input for native camera barcode scan on iOS -->
@@ -527,6 +528,8 @@ text-align: center;
 
 <div id="toast"></div>
 
+<script src="https://unpkg.com/html5-qrcode"></script>
+
 <script>
 // ── STATE ──────────────────────────────────────────────────────
 var packages = [];
@@ -557,11 +560,32 @@ barcodeInput.addEventListener('change', function() {
   if (barcodeInput.value.trim()) applyCode(barcodeInput.value.trim());
 });
 
+let scanner;
+
 function triggerScan() {
-  // On iOS, focus the input – user can use the camera icon on the keyboard
-  // or we show a prompt as fallback
-  barcodeInput.focus();
-  showToast('Barcode eingeben oder Enter drücken', false);
+  const reader = document.getElementById("reader");
+
+  if (reader.style.display === "block") return; // verhindert doppelt starten
+
+  reader.style.display = "block";
+
+  if (!scanner) {
+    scanner = new Html5Qrcode("reader");
+  }
+
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 120 } },
+    (decodedText) => {
+      scanner.stop();
+      reader.style.display = "none";
+      applyCode(decodedText);
+      showToast("✓ Barcode erkannt");
+    }
+  ).catch(err => {
+    showToast("Kamera Fehler", true);
+    console.log(err);
+  });
 }
 
 function applyCode(code) {
@@ -715,6 +739,7 @@ function showToast(msg, warn) {
 
 // ── INIT ───────────────────────────────────────────────────────
 updateBadge();
+
 </script>
 
 </body>
