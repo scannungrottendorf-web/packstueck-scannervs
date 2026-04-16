@@ -573,34 +573,25 @@ function triggerScan() {
     scanner = new Html5Qrcode("reader");
   }
 
-  scanner.start(
-    { facingMode: "environment" },
-    {
-      fps: 15,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.CODE_39
-      ],
-      qrbox: function(w, h) {
-        return {
-          width: w * 0.9,
-          height: h * 0.25
-        };
-      }
-    },
-    (decodedText) => {
-      scanner.stop();
-      document.getElementById("reader").style.display = "none";
-
-      applyCode(decodedText);
-      showToast("✓ Barcode erkannt");
+scanner.start(
+  { facingMode: "environment" },
+  {
+    fps: 10,
+    experimentalFeatures: {
+      useBarCodeDetectorIfSupported: true
     }
-  ).catch((err) => {
-    console.log(err);
-    showToast("Kamera Fehler", true);
-  });
+  },
+  (decodedText) => {
+    scanner.stop();
+    document.getElementById("reader").style.display = "none";
+
+    applyCode(decodedText);
+    showToast("✓ Barcode erkannt");
+  }
+).catch((err) => {
+  console.log(err);
+  showToast("Kamera Fehler", true);
+});
 }
 
 function applyCode(code) {
