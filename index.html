@@ -555,8 +555,8 @@ var barcodeInput = document.getElementById('barcodeInput');
 barcodeInput.addEventListener('keydown', function(e) {
   if (e.key === 'Enter') applyCode(barcodeInput.value.trim());
 });
+
 barcodeInput.addEventListener('change', function() {
-  // triggers on iOS after barcode scanner keyboard input
   if (barcodeInput.value.trim()) applyCode(barcodeInput.value.trim());
 });
 
@@ -565,7 +565,7 @@ let scanner;
 function triggerScan() {
   const reader = document.getElementById("reader");
 
-  if (reader.style.display === "block") return; // verhindert doppelt starten
+  if (reader.style.display === "block") return;
 
   reader.style.display = "block";
 
@@ -575,16 +575,31 @@ function triggerScan() {
 
   scanner.start(
     { facingMode: "environment" },
-    { fps: 10, qrbox: { width: 250, height: 120 } },
+    {
+      fps: 15,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.CODE_39
+      ],
+      qrbox: function(w, h) {
+        return {
+          width: w * 0.9,
+          height: h * 0.25
+        };
+      }
+    },
     (decodedText) => {
       scanner.stop();
-      reader.style.display = "none";
+      document.getElementById("reader").style.display = "none";
+
       applyCode(decodedText);
       showToast("✓ Barcode erkannt");
     }
-  ).catch(err => {
-    showToast("Kamera Fehler", true);
+  ).catch((err) => {
     console.log(err);
+    showToast("Kamera Fehler", true);
   });
 }
 
