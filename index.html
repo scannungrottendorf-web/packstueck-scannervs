@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PackScan – Eingang</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@300;500;700;900&display=swap');
+
+:root {
+–bg: #0d0f0e;
+–surface: #161918;
+–border: #2a2e2c;
+–accent: #00e87c;
+–accent-dim: #00e87c22;
+–warn: #ff6b35;
+–text: #e8ede9;
+–muted: #5a6360;
+–radius: 10px;
+}
+
+- { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+background: var(–bg);
+color: var(–text);
+font-family: ‘Barlow Condensed’, sans-serif;
+min-height: 100dvh;
+display: flex;
+flex-direction: column;
+overflow-x: hidden;
+}
+
+/* HEADER */
+header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 16px 20px 12px;
+border-bottom: 1px solid var(–border);
+position: sticky;
+top: 0;
+background: var(–bg);
+z-index: 100;
+}
+.logo {
+font-size: 22px;
+font-weight: 900;
+letter-spacing: -0.5px;
+color: var(–accent);
+}
+.logo span { color: var(–text); }
+.counter-badge {
+background: var(–accent-dim);
+border: 1px solid var(–accent);
+color: var(–accent);
+font-family: ‘DM Mono’, monospace;
+font-size: 13px;
+padding: 4px 12px;
+border-radius: 100px;
+}
+
+/* TABS */
+.tabs {
+display: flex;
+border-bottom: 1px solid var(–border);
+background: var(–bg);
+position: sticky;
+top: 57px;
+z-index: 99;
+}
+.tab {
+flex: 1;
+padding: 12px 8px;
+text-align: center;
+font-size: 15px;
+font-weight: 700;
+letter-spacing: 0.5px;
+color: var(–muted);
+cursor: pointer;
+border-bottom: 2px solid transparent;
+transition: all 0.2s;
+text-transform: uppercase;
+}
+.tab.active {
+color: var(–accent);
+border-bottom-color: var(–accent);
+}
+
+/* PANELS */
+.panel { display: none; flex: 1; flex-direction: column; }
+.panel.active { display: flex; }
+
+/* SCAN PANEL */
+#scanner-container {
+position: relative;
+width: 100%;
+aspect-ratio: 4/3;
+background: #000;
+overflow: hidden;
+}
+#scanner-container video,
+#scanner-container canvas {
+position: absolute;
+top: 0; left: 0;
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+#scanner-container canvas { opacity: 0; }
+.scan-overlay {
+position: absolute;
+inset: 0;
+display: flex;
+align-items: center;
+justify-content: center;
+pointer-events: none;
+}
+.scan-frame {
+width: 72%;
+aspect-ratio: 3/1;
+border: 2px solid var(–accent);
+border-radius: 8px;
+position: relative;
+box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
+}
+.scan-frame::before {
+content: ‘’;
+position: absolute;
+top: -2px; left: -2px; right: -2px;
+height: 3px;
+background: var(–accent);
+border-radius: 2px;
+animation: scan-line 2s ease-in-out infinite;
+box-shadow: 0 0 12px var(–accent);
+}
+@keyframes scan-line {
+0%, 100% { top: 0; }
+50% { top: calc(100% - 3px); }
+}
+.corner {
+position: absolute;
+width: 16px; height: 16px;
+border-color: var(–accent);
+border-style: solid;
+}
+.corner.tl { top: -3px; left: -3px; border-width: 3px 0 0 3px; border-radius: 3px 0 0 0; }
+.corner.tr { top: -3px; right: -3px; border-width: 3px 3px 0 0; border-radius: 0 3px 0 0; }
+.corner.bl { bottom: -3px; left: -3px; border-width: 0 0 3px 3px; border-radius: 0 0 0 3px; }
+.corner.br { bottom: -3px; right: -3px; border-width: 0 3px 3px 0; border-radius: 0 0 3px 0; }
+
+.scan-status {
+position: absolute;
+bottom: 0; left: 0; right: 0;
+padding: 10px 16px;
+background: linear-gradient(transparent, rgba(0,0,0,0.8));
+font-size: 13px;
+font-family: ‘DM Mono’, monospace;
+color: var(–muted);
+text-align: center;
+}
+.scan-status.found { color: var(–accent); }
+
+/* MANUAL INPUT */
+.manual-bar {
+display: flex;
+gap: 8px;
+padding: 12px 16px;
+border-bottom: 1px solid var(–border);
+background: var(–surface);
+}
+.manual-bar input {
+flex: 1;
+background: var(–bg);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+color: var(–text);
+font-family: ‘DM Mono’, monospace;
+font-size: 15px;
+padding: 10px 14px;
+outline: none;
+}
+.manual-bar input:focus { border-color: var(–accent); }
+.btn-icon {
+background: var(–accent);
+border: none;
+border-radius: var(–radius);
+color: #000;
+font-weight: 900;
+font-size: 18px;
+width: 44px;
+cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+transition: opacity 0.15s;
+}
+.btn-icon:active { opacity: 0.7; }
+
+/* ENTRY FORM */
+.entry-form {
+padding: 16px;
+flex: 1;
+overflow-y: auto;
+}
+.barcode-display {
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 12px 16px;
+margin-bottom: 16px;
+display: flex;
+align-items: center;
+gap: 12px;
+}
+.barcode-display .icon { font-size: 22px; }
+.barcode-display .code {
+font-family: ‘DM Mono’, monospace;
+font-size: 16px;
+color: var(–accent);
+font-weight: 500;
+word-break: break-all;
+}
+.barcode-display .label { font-size: 12px; color: var(–muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+.dim-grid {
+display: grid;
+grid-template-columns: 1fr 1fr 1fr;
+gap: 10px;
+margin-bottom: 14px;
+}
+.dim-field label {
+display: block;
+font-size: 12px;
+text-transform: uppercase;
+letter-spacing: 0.8px;
+color: var(–muted);
+margin-bottom: 6px;
+}
+.dim-field input {
+width: 100%;
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+color: var(–text);
+font-family: ‘DM Mono’, monospace;
+font-size: 22px;
+font-weight: 500;
+padding: 12px 10px;
+text-align: center;
+outline: none;
+transition: border-color 0.15s;
+}
+.dim-field input:focus { border-color: var(–accent); }
+.dim-field .unit {
+text-align: center;
+font-size: 11px;
+color: var(–muted);
+margin-top: 4px;
+}
+
+.volume-result {
+background: var(–accent-dim);
+border: 1px solid var(–accent);
+border-radius: var(–radius);
+padding: 14px 16px;
+margin-bottom: 16px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+.volume-result .label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(–accent); }
+.volume-result .value {
+font-family: ‘DM Mono’, monospace;
+font-size: 24px;
+font-weight: 500;
+color: var(–accent);
+}
+
+.btn-save {
+width: 100%;
+background: var(–accent);
+border: none;
+border-radius: var(–radius);
+color: #000;
+font-family: ‘Barlow Condensed’, sans-serif;
+font-size: 20px;
+font-weight: 900;
+letter-spacing: 1px;
+padding: 16px;
+cursor: pointer;
+text-transform: uppercase;
+transition: opacity 0.15s, transform 0.1s;
+margin-bottom: 10px;
+}
+.btn-save:active { opacity: 0.8; transform: scale(0.99); }
+.btn-save:disabled { background: var(–border); color: var(–muted); cursor: default; transform: none; }
+
+.scan-next-hint {
+text-align: center;
+font-size: 13px;
+color: var(–muted);
+padding: 8px;
+}
+
+/* Placeholder when no barcode */
+.waiting-scan {
+flex: 1;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+gap: 12px;
+color: var(–muted);
+padding: 40px 20px;
+}
+.waiting-scan .big-icon { font-size: 56px; opacity: 0.3; }
+.waiting-scan p { font-size: 16px; text-align: center; line-height: 1.4; }
+
+/* LIST PANEL */
+.list-header {
+padding: 14px 16px 10px;
+border-bottom: 1px solid var(–border);
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 10px;
+}
+.list-search {
+flex: 1;
+background: var(–surface);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+color: var(–text);
+font-family: ‘DM Mono’, monospace;
+font-size: 14px;
+padding: 8px 12px;
+outline: none;
+}
+.list-search:focus { border-color: var(–accent); }
+.btn-export {
+background: var(–accent);
+border: none;
+border-radius: var(–radius);
+color: #000;
+font-family: ‘Barlow Condensed’, sans-serif;
+font-size: 15px;
+font-weight: 700;
+padding: 8px 16px;
+cursor: pointer;
+white-space: nowrap;
+text-transform: uppercase;
+transition: opacity 0.15s;
+}
+.btn-export:active { opacity: 0.7; }
+
+.list-stats {
+display: flex;
+gap: 0;
+border-bottom: 1px solid var(–border);
+}
+.stat-box {
+flex: 1;
+padding: 10px 12px;
+border-right: 1px solid var(–border);
+text-align: center;
+}
+.stat-box:last-child { border-right: none; }
+.stat-box .sv { font-family: ‘DM Mono’, monospace; font-size: 18px; font-weight: 500; color: var(–accent); }
+.stat-box .sl { font-size: 11px; color: var(–muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+.list-body { flex: 1; overflow-y: auto; }
+.list-empty {
+display: flex; flex-direction: column; align-items: center; justify-content: center;
+padding: 60px 20px; color: var(–muted); gap: 10px; font-size: 15px;
+}
+.list-empty .big-icon { font-size: 44px; opacity: 0.3; }
+
+.pkg-item {
+display: flex;
+align-items: center;
+padding: 12px 16px;
+border-bottom: 1px solid var(–border);
+gap: 12px;
+transition: background 0.15s;
+}
+.pkg-item:active { background: var(–surface); }
+.pkg-num {
+font-family: ‘DM Mono’, monospace;
+font-size: 12px;
+color: var(–muted);
+min-width: 28px;
+}
+.pkg-info { flex: 1; min-width: 0; }
+.pkg-code {
+font-family: ‘DM Mono’, monospace;
+font-size: 14px;
+color: var(–text);
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+.pkg-dims {
+font-size: 12px;
+color: var(–muted);
+margin-top: 2px;
+}
+.pkg-vol {
+font-family: ‘DM Mono’, monospace;
+font-size: 14px;
+color: var(–accent);
+text-align: right;
+white-space: nowrap;
+}
+.pkg-vol .unit { font-size: 11px; color: var(–muted); }
+.pkg-delete {
+background: none;
+border: none;
+color: var(–muted);
+font-size: 18px;
+padding: 4px 6px;
+cursor: pointer;
+border-radius: 6px;
+transition: color 0.15s, background 0.15s;
+}
+.pkg-delete:active { color: var(–warn); background: rgba(255,107,53,0.1); }
+
+/* TOAST */
+#toast {
+position: fixed;
+bottom: 24px;
+left: 50%;
+transform: translateX(-50%) translateY(80px);
+background: var(–accent);
+color: #000;
+font-family: ‘Barlow Condensed’, sans-serif;
+font-size: 16px;
+font-weight: 700;
+padding: 12px 24px;
+border-radius: 100px;
+z-index: 999;
+transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+white-space: nowrap;
+pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.warn { background: var(–warn); }
+
+/* Scanner toggle button */
+.scanner-toggle {
+background: none;
+border: 1px solid var(–border);
+color: var(–text);
+border-radius: var(–radius);
+font-family: ‘Barlow Condensed’, sans-serif;
+font-size: 14px;
+font-weight: 500;
+padding: 6px 14px;
+cursor: pointer;
+display: flex; align-items: center; gap: 6px;
+width: 100%;
+justify-content: center;
+margin: 12px 16px 0;
+width: calc(100% - 32px);
+}
+.scanner-toggle.active { border-color: var(–warn); color: var(–warn); }
+</style>
+
+</head>
+<body>
+
+<header>
+  <div class="logo">Pack<span>Scan</span></div>
+  <div class="counter-badge" id="headerCount">0 Pakete</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="scan">📷 Scannen</div>
+  <div class="tab" data-tab="list">📦 Liste</div>
+</div>
+
+<!-- SCAN PANEL -->
+
+<div class="panel active" id="tab-scan">
+  <div id="scanner-container" style="display:none">
+    <div class="scan-overlay">
+      <div class="scan-frame">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+      </div>
+    </div>
+    <div class="scan-status" id="scanStatus">Barcode in den Rahmen halten...</div>
+  </div>
+
+  <button class="scanner-toggle" id="toggleScanner" onclick="toggleScanner()">
+    📷 Kamera-Scanner starten
+  </button>
+
+  <div class="manual-bar">
+    <input type="text" id="manualCode" placeholder="Barcode manuell eingeben..." autocomplete="off" autocorrect="off">
+    <button class="btn-icon" onclick="applyManualCode()">→</button>
+  </div>
+
+  <div id="waitingArea" class="waiting-scan">
+    <div class="big-icon">⬜</div>
+    <p>Barcode scannen oder<br>manuell eingeben</p>
+  </div>
+
+  <div id="entryArea" class="entry-form" style="display:none">
+    <div class="barcode-display">
+      <div class="icon">▦</div>
+      <div>
+        <div class="label">Barcode</div>
+        <div class="code" id="displayCode">—</div>
+      </div>
+    </div>
+
+
+<div class="dim-grid">
+  <div class="dim-field">
+    <label>Länge</label>
+    <input type="number" id="dimL" inputmode="decimal" placeholder="0" min="0" step="0.1" oninput="calcVolume()">
+    <div class="unit">cm</div>
+  </div>
+  <div class="dim-field">
+    <label>Breite</label>
+    <input type="number" id="dimB" inputmode="decimal" placeholder="0" min="0" step="0.1" oninput="calcVolume()">
+    <div class="unit">cm</div>
+  </div>
+  <div class="dim-field">
+    <label>Höhe</label>
+    <input type="number" id="dimH" inputmode="decimal" placeholder="0" min="0" step="0.1" oninput="calcVolume()">
+    <div class="unit">cm</div>
+  </div>
+</div>
+
+<div class="volume-result">
+  <div class="label">Volumen</div>
+  <div class="value" id="volDisplay">— m³</div>
+</div>
+
+<button class="btn-save" id="saveBtn" onclick="savePackage()" disabled>SPEICHERN & WEITER</button>
+<div class="scan-next-hint">Nach dem Speichern: nächsten Barcode scannen</div>
+
+
+  </div>
+</div>
+
+<!-- LIST PANEL -->
+
+<div class="panel" id="tab-list">
+  <div class="list-header">
+    <input class="list-search" id="searchInput" type="text" placeholder="Barcode suchen..." oninput="renderList()">
+    <button class="btn-export" onclick="exportCSV()">↓ CSV</button>
+  </div>
+  <div class="list-stats">
+    <div class="stat-box">
+      <div class="sv" id="statCount">0</div>
+      <div class="sl">Pakete</div>
+    </div>
+    <div class="stat-box">
+      <div class="sv" id="statVol">0.000</div>
+      <div class="sl">m³ gesamt</div>
+    </div>
+    <div class="stat-box">
+      <div class="sv" id="statAvg">—</div>
+      <div class="sl">m³ Ø</div>
+    </div>
+  </div>
+  <div class="list-body" id="listBody">
+    <div class="list-empty">
+      <div class="big-icon">📦</div>
+      <p>Noch keine Pakete erfasst</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let packages = JSON.parse(localStorage.getItem('packscan_data') || '[]');
+let currentCode = null;
+let scannerRunning = false;
+let scannerReady = false;
+let lastScannedCode = null;
+let scanCooldown = false;
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'list') renderList();
+  });
+});
+
+// ─── SCANNER ──────────────────────────────────────────────────────────────────
+function toggleScanner() {
+  if (scannerRunning) {
+    stopScanner();
+  } else {
+    startScanner();
+  }
+}
+
+function startScanner() {
+  const container = document.getElementById('scanner-container');
+  container.style.display = 'block';
+  document.getElementById('toggleScanner').textContent = '⏹ Kamera stoppen';
+  document.getElementById('toggleScanner').classList.add('active');
+
+  Quagga.init({
+    inputStream: {
+      type: 'LiveStream',
+      target: container,
+      constraints: {
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    },
+    decoder: {
+      readers: ['code_128_reader','ean_reader','ean_8_reader','code_39_reader','upc_reader','upc_e_reader','itf_reader']
+    },
+    locate: true,
+    numOfWorkers: navigator.hardwareConcurrency || 2,
+    frequency: 10,
+  }, err => {
+    if (err) {
+      showToast('Kamerazugriff verweigert', true);
+      stopScanner();
+      return;
+    }
+    Quagga.start();
+    scannerRunning = true;
+    scannerReady = true;
+  });
+
+  Quagga.onDetected(result => {
+    if (!scannerReady || scanCooldown) return;
+    const code = result.codeResult.code;
+    if (!code || code === lastScannedCode) return;
+
+    scanCooldown = true;
+    lastScannedCode = code;
+    setTimeout(() => { scanCooldown = false; }, 2000);
+
+    document.getElementById('scanStatus').textContent = '✓ ' + code;
+    document.getElementById('scanStatus').classList.add('found');
+    setTimeout(() => {
+      document.getElementById('scanStatus').textContent = 'Barcode in den Rahmen halten...';
+      document.getElementById('scanStatus').classList.remove('found');
+    }, 1500);
+
+    setCurrentCode(code);
+  });
+}
+
+function stopScanner() {
+  if (scannerRunning) {
+    Quagga.stop();
+    scannerRunning = false;
+    scannerReady = false;
+  }
+  document.getElementById('scanner-container').style.display = 'none';
+  document.getElementById('toggleScanner').textContent = '📷 Kamera-Scanner starten';
+  document.getElementById('toggleScanner').classList.remove('active');
+}
+
+function applyManualCode() {
+  const val = document.getElementById('manualCode').value.trim();
+  if (!val) { showToast('Kein Barcode eingegeben', true); return; }
+  setCurrentCode(val);
+  document.getElementById('manualCode').value = '';
+}
+
+document.getElementById('manualCode').addEventListener('keydown', e => {
+  if (e.key === 'Enter') applyManualCode();
+});
+
+function setCurrentCode(code) {
+  currentCode = code;
+  document.getElementById('displayCode').textContent = code;
+  document.getElementById('waitingArea').style.display = 'none';
+  document.getElementById('entryArea').style.display = 'block';
+  document.getElementById('dimL').value = '';
+  document.getElementById('dimB').value = '';
+  document.getElementById('dimH').value = '';
+  document.getElementById('volDisplay').textContent = '— m³';
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('dimL').focus();
+}
+
+// ─── VOLUME ───────────────────────────────────────────────────────────────────
+function calcVolume() {
+  const l = parseFloat(document.getElementById('dimL').value) || 0;
+  const b = parseFloat(document.getElementById('dimB').value) || 0;
+  const h = parseFloat(document.getElementById('dimH').value) || 0;
+  if (l > 0 && b > 0 && h > 0) {
+    const vol = (l * b * h) / 1000000; // cm³ → m³
+    document.getElementById('volDisplay').textContent = vol.toFixed(4) + ' m³';
+    document.getElementById('saveBtn').disabled = false;
+  } else {
+    document.getElementById('volDisplay').textContent = '— m³';
+    document.getElementById('saveBtn').disabled = true;
+  }
+}
+
+// ─── SAVE ─────────────────────────────────────────────────────────────────────
+function savePackage() {
+  const l = parseFloat(document.getElementById('dimL').value);
+  const b = parseFloat(document.getElementById('dimB').value);
+  const h = parseFloat(document.getElementById('dimH').value);
+  if (!currentCode || !l || !b || !h) return;
+
+  const vol = (l * b * h) / 1000000;
+  const pkg = {
+    id: Date.now(),
+    code: currentCode,
+    length: l, width: b, height: h,
+    volume: vol,
+    ts: new Date().toISOString()
+  };
+  packages.push(pkg);
+  saveData();
+  updateHeaderCount();
+  showToast('✓ Gespeichert – ' + vol.toFixed(4) + ' m³');
+
+  // Reset to scan next
+  currentCode = null;
+  lastScannedCode = null;
+  document.getElementById('waitingArea').style.display = 'flex';
+  document.getElementById('entryArea').style.display = 'none';
+}
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+function saveData() {
+  localStorage.setItem('packscan_data', JSON.stringify(packages));
+}
+
+function updateHeaderCount() {
+  document.getElementById('headerCount').textContent = packages.length + ' Paket' + (packages.length !== 1 ? 'e' : '');
+}
+
+// ─── LIST ─────────────────────────────────────────────────────────────────────
+function renderList() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const filtered = q ? packages.filter(p => p.code.toLowerCase().includes(q)) : packages;
+
+  const totalVol = packages.reduce((s, p) => s + p.volume, 0);
+  document.getElementById('statCount').textContent = packages.length;
+  document.getElementById('statVol').textContent = totalVol.toFixed(3);
+  document.getElementById('statAvg').textContent = packages.length ? (totalVol / packages.length).toFixed(4) : '—';
+
+  const body = document.getElementById('listBody');
+  if (!filtered.length) {
+    body.innerHTML = <div class="list-empty"><div class="big-icon">🔍</div><p>${q ? 'Keine Treffer' : 'Noch keine Pakete erfasst'}</p></div>;
+    return;
+  }
+
+  body.innerHTML = [...filtered].reverse().map((p, i) => `
+    <div class="pkg-item">
+      <div class="pkg-num">#${packages.length - (filtered.length - 1 - i) + (filtered.length - packages.length)}</div>
+      <div class="pkg-info">
+        <div class="pkg-code">${p.code}</div>
+        <div class="pkg-dims">${p.length} × ${p.width} × ${p.height} cm</div>
+      </div>
+      <div class="pkg-vol">${p.volume.toFixed(4)}<br><span class="unit">m³</span></div>
+      <button class="pkg-delete" onclick="deletePackage(${p.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+function deletePackage(id) {
+  if (!confirm('Dieses Paket löschen?')) return;
+  packages = packages.filter(p => p.id !== id);
+  saveData();
+  updateHeaderCount();
+  renderList();
+}
+
+// ─── EXPORT ───────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!packages.length) { showToast('Keine Daten zum Exportieren', true); return; }
+
+  const rows = [
+    ['Nr', 'Barcode', 'Länge_cm', 'Breite_cm', 'Höhe_cm', 'Volumen_m3', 'Zeitstempel'],
+    ...packages.map((p, i) => [
+      i + 1, p.code, p.length, p.width, p.height,
+      p.volume.toFixed(6),
+      new Date(p.ts).toLocaleString('de-DE')
+    ])
+  ];
+
+  const csv = rows.map(r => r.map(v => "${String(v).replace(/"/g, '""')}").join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'packstücke_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportiert (' + packages.length + ' Pakete)');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, warn = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (warn ? ' warn' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 2200);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+updateHeaderCount();
+</script>
+
+</body>
+</html>
